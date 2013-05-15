@@ -56,14 +56,14 @@ public abstract class BaseTestRunner implements TestListener {
 	public static void savePreferences() throws IOException {
 		FileOutputStream fos= new FileOutputStream(getPreferencesFile());
 		try {
-			// calling of the deprecated save method to enable compiling under 1.1.7
-			getPreferences().save(fos, "");
+			getPreferences().store(fos, "");
 		} finally {
 			fos.close();
 		}
 	}
 
-	public static void setPreference(String key, String value) {
+	// android-changed remove 'static' qualifier for API compatibility
+	public void setPreference(String key, String value) {
 		getPreferences().put(key, value);
 	}
 
@@ -96,7 +96,7 @@ public abstract class BaseTestRunner implements TestListener {
 			clearStatus();
 			return null;
 		}
-		Class testClass= null;
+		Class<?> testClass= null;
 		try {
 			testClass= loadSuiteClass(suiteClassName);
 		} catch (ClassNotFoundException e) {
@@ -201,11 +201,22 @@ public abstract class BaseTestRunner implements TestListener {
 	 */
 	protected abstract void runFailed(String message);
 
+	// BEGIN android-changed - add back getLoader() for API compatibility
+	/**
+	 * Returns the loader to be used.
+	 *
+	 * @deprecated not present in JUnit4.10
+	 */
+	public TestSuiteLoader getLoader() {
+		return new StandardTestSuiteLoader();
+	}
+	// END android-changed
+
 	/**
 	 * Returns the loaded Class for a suite name.
 	 */
-	protected Class loadSuiteClass(String suiteClassName) throws ClassNotFoundException {
-		return getLoader().load(suiteClassName);
+	protected Class<?> loadSuiteClass(String suiteClassName) throws ClassNotFoundException {
+		return Class.forName(suiteClassName);
 	}
 
 	/**
@@ -214,17 +225,8 @@ public abstract class BaseTestRunner implements TestListener {
 	protected void clearStatus() { // Belongs in the GUI TestRunner class
 	}
 
-	/**
-	 * Returns the loader to be used.
-	 */
-	public TestSuiteLoader getLoader() {
-		if (useReloadingTestSuiteLoader())
-			return new ReloadingTestSuiteLoader();
-		return new StandardTestSuiteLoader();
-	}
-
 	protected boolean useReloadingTestSuiteLoader() {
-		return getPreference("loading").equals("true") && !inVAJava() && fLoading;
+		return getPreference("loading").equals("true") && fLoading;
 	}
 
 	private static File getPreferencesFile() {
@@ -263,21 +265,6 @@ public abstract class BaseTestRunner implements TestListener {
  		return intValue;
  	}
 
- 	public static boolean inVAJava() {
-		try {
-			Class.forName("com.ibm.uvm.tools.DebugSupport");
-		}
-		catch (Exception e) {
-			return false;
-		}
-		return true;
-	}
-
-	public static boolean inMac() {
-		return System.getProperty("mrj.version") != null;
-	}
-
-
 	/**
 	 * Returns a filtered stack trace
 	 */
@@ -290,6 +277,13 @@ public abstract class BaseTestRunner implements TestListener {
 		return BaseTestRunner.getFilteredTrace(trace);
 	}
 
+	// BEGIN android-changed - add back this method for API compatibility
+	/** @deprecated not present in JUnit4.10 */
+	public static boolean inVAJava() {
+		return false;
+	}
+	// END android-changed
+
 	/**
 	 * Filters stack frames from internal JUnit classes
 	 */
@@ -300,7 +294,10 @@ public abstract class BaseTestRunner implements TestListener {
 		StringWriter sw= new StringWriter();
 		PrintWriter pw= new PrintWriter(sw);
 		StringReader sr= new StringReader(stack);
-		BufferedReader br= new BufferedReader(sr);
+		// BEGIN android-changed
+		// Use a sensible default buffer size
+		BufferedReader br= new BufferedReader(sr, 1000);
+		// END android-changed
 
 		String line;
 		try {
